@@ -1,163 +1,75 @@
-# Project explanation: Voice Recognition using Signals and Systems
+# Simple project explanation
 
-## What does our project do?
+## What are we making?
 
-Our project listens to a short command, reduces background noise, and identifies the command. It currently recognizes **START, STOP and LIGHTS**.
+A small MATLAB program that recognizes three spoken commands: **START, STOP and LIGHTS**. It reduces some background noise and shows the recognized word with graphs.
 
-For example, you say START while a fan is running. The system records both your voice and the fan, estimates the background noise, reduces some of it, compares your speech with stored examples, and displays START.
+Example: you say START with a fan running. The program removes some low-frequency hum, compares your sound with saved examples, and displays START if that is the closest clear match.
 
-Here, recognition means **what command was spoken**. It does not identify who is speaking or understand an unrestricted conversation.
+## The whole idea
 
-## Why is this useful?
+**Get sound -> reduce some noise -> make a sound pattern -> compare with examples -> display a word.**
 
-People can use voice commands as an alternative to clicking buttons or typing. A future integration could connect START to playing a video, STOP to pausing it, or LIGHTS to a connected device. The current model produces recognition decisions and signal outputs. It does **not** launch software, switch physical lights, or control appliances yet. Those actions need an additional software or hardware connection.
+## 1. Get a recording
 
-## What goes in and what comes out?
+The demonstration uses supplied WAV files. It adds hum and random noise so you can see what filtering does. For a live demonstration, the microphone records your voice instead.
 
-**Input:** one short spoken command recorded by a microphone or stored as a WAV file, with a brief background-only calibration interval.
+`fs = 16000` means that one second of audio is represented by 16,000 sample values. `x` is the list of those values.
 
-**Outputs:** the recognized command, a processed audio signal, and graphs showing how the signal changed. If there is too little speech evidence, it reports `no speech`. If the match is weak or ambiguous, it reports `please repeat`.
+## 2. Reduce some background noise
 
-## How it works, in everyday language
+`fft` shows how much of each frequency is present. The code keeps frequencies from 200 to 4000 Hz and removes frequencies outside that range. This can reduce low hum and high-frequency noise, although it also removes some useful speech information.
 
-### 1. Listen to the room first
+The FFT of real audio contains matching positive and negative frequency parts, so the code keeps both. `ifft` converts the remaining frequencies back into a sound waveform.
 
-Before speaking, stay quiet during calibration. The system hears the room's fan, hum or other background sound. It uses the first 0.25 seconds to estimate that background noise. For microphone recording, it displays SPEAK NOW after approximately 0.5 seconds.
+This is a basic frequency filter. It cannot separate every kind of noise from speech, especially another person talking in the same frequency range. Abrupt frequency cutoffs can also cause ringing.
 
-This is like learning what the room sounds like before trying to hear a person in it.
+## 3. Make a frequency fingerprint
 
-### 2. Break the recording into small pieces
+Split the 200-4000 Hz range into 24 equal bands. Measure the average sound power in each band. This gives 24 numbers describing the overall frequency pattern of the word.
 
-Speech changes quickly. Instead of analyzing the entire recording at once, the model examines overlapping 25 millisecond pieces. It advances by 10 milliseconds each time.
+During the first quiet 0.25 seconds, the recording contains background noise. The code estimates its power in the same bands and subtracts that estimate from the fingerprint values. This affects recognition features; the plotted output waveform comes from the frequency filter.
 
-At 16,000 samples per second, each piece contains 400 samples and each advance contains 160 samples.
+`log` compresses large differences in power. Subtracting the pattern's mean and dividing by its size make comparison less sensitive to overall volume. These operations do not teach the model a language.
 
-### 3. See which frequencies are present
+## 4. Compare with known words
 
-Each sound contains a mixture of frequencies. A Fourier transform separates the mixture into frequency components. Repeating this over the short pieces produces a spectrogram: a picture showing which frequencies occur at which times.
-
-The Hamming window softens each piece's edges to reduce unwanted spectral leakage.
-
-### 4. Reduce likely background noise
-
-The system compares the current frequency content with the estimated background. It lowers components likely to be noise. It uses a nonzero minimum gain so it does not simply delete every weak component.
-
-Noise reduction is imperfect because voice and noise can occupy the same frequencies.
-
-### 5. Adjust the amount of processing
-
-Strong processing can damage useful speech details. The model preserves an original-audio path and blends it with the processed path. Its simple controller generally uses more suppression when the estimated conditions are noisier.
-
-This controller is a hand-written rule. It is not a trained neural network or a proven best setting for every room.
-
-### 6. Rebuild the sound
-
-The model converts the processed frequency components back into audio and joins the overlapping pieces. It corrects for the window overlap so the reconstructed waveform has the expected length and amplitude behavior.
-
-### 7. Make a compact description of the word
-
-The default feature extractor produces **MFCCs**. Think of these as a compact description of the sound's shape, rather than a saved list of every audio sample. They describe patterns related to speech resonances.
-
-MFCC processing uses a hearing-inspired Mel filterbank, logarithms and a cosine transform. The model keeps 13 coefficients per selected frame.
-
-An optional **Gammatone-PCEN** mode uses a different hearing-inspired filterbank and a normalization method that adapts to energy changes. Both versions use fixed mathematical parameters; neither is a learnable frontend.
-
-### 8. Compare it with known examples
-
-During enrollment, you record three examples each of START, STOP and LIGHTS. The system also makes a noisy training copy of each example, giving eighteen feature templates from nine recordings.
-
-It compares a new word against those templates using **dynamic time warping (DTW)**. DTW allows the same word to be spoken a little faster or slower. Lower distance means a closer match.
-
-### 9. Decide whether the match is strong enough
-
-The system checks both the best match's distance and how clearly it beats the next-best command. It accepts a label when both tests pass, otherwise it asks for a repeat.
-
-These thresholds are prototype settings, not percentages of confidence. Unknown words can still be mistaken for known commands.
-
-## Where the code implements each stage
-
-| MATLAB function | Responsibility |
-|---|---|
-| `speech_model` | Select demo, train, live, file or self-test mode |
-| `readClip` / `checkClip` | Read audio and check sample rate, duration, finite values and clipping |
-| `recordClip` | Record microphone audio with calibration instructions |
-| `analysisSTFT` | Window overlapping frames and compute FFTs |
-| `enhance` | Estimate noise, detect energy-based speech evidence, suppress noise and blend paths |
-| `synthesisSTFT` | Inverse FFT and normalized overlap-add |
-| `auditoryBank` | Build Mel or Gammatone frequency weights |
-| `features` | Extract compact cepstral feature sequences |
-| `fitTemplates` | Fit training normalization, templates and a provisional rejection threshold |
-| `dtwCost` | Align and compare sequences of different durations |
-| `classify` | Choose a command or return a rejection decision |
-| `showResult` | Display and save signal and recognition plots |
-
-All helper functions are in `speech_model.m` so the project is easy to move as one main code file.
-
-## What do the graphs mean?
-
-| Graph | Explanation |
-|---|---|
-| Input waveform | The recorded sound before enhancement |
-| Output waveform | The sound after processing |
-| Input/output spectrograms | Frequency content over time, displayed with a common scale |
-| Adaptive strength | How much processing the controller applies |
-| Speech evidence | Where the energy heuristic thinks the word is present |
-| Teager energy | A diagnostic sensitive to local amplitude and frequency changes; not guaranteed noise removal |
-| Analysis filterbank | Which frequency regions contribute to the features |
-| Suppression gain | How strongly each frequency component is attenuated over time |
-| Cepstral features | The compact sound pattern compared with templates |
-| DTW bars | Distances to each command; smaller is better |
-
-## Connection to Signals and Systems
-
-- **Sampling:** converts microphone sound into discrete values at 16 kHz.
-- **Windowing and STFT:** examine how frequency content changes with time.
-- **Power spectra:** support background-noise estimation.
-- **Filtering:** changes frequency components to reduce interference.
-- **Impulse/frequency response:** explain the pre-emphasis filter and auditory analysis filters.
-- **Inverse transforms and overlap-add:** reconstruct processed audio.
-- **Adaptive systems:** change processing strength according to measured input conditions.
-
-For example, the pre-emphasis filter has impulse response `h = [1, -0.97]` and transfer function `H(z) = 1 - 0.97*z^-1`. The entire recognizer is adaptive and nonlinear, so it should not be described as one linear time-invariant system.
-
-## How to demonstrate it
-
-### Demonstration without speaking
-
-Open `RUN_DEMO.m` in MATLAB, set the repository folder as the Current Folder and click Run. It checks reconstruction, fits templates from supplied speech clips, adds noise to separate test clips and displays results.
-
-The included voice is synthetic speech, supplied for a repeatable demonstration. It is not a human-speaker accuracy dataset.
-
-### Demonstration using your voice
-
-Before the presentation, run:
+We store three examples each of START, STOP and LIGHTS. For each saved example:
 
 ```matlab
-speech_model('train');
+difference = sum((pattern - savedPattern).^2);
 ```
 
-Record the nine requested examples. Wait for SPEAK NOW each time. During the presentation, run:
+In plain language: subtract the two lists of 24 numbers, square each difference, and add them. A smaller result means the patterns are closer. The program keeps the best example for each word.
 
-```matlab
-result = speech_model('live');
-```
+A whole-word average loses the order of speech sounds. Two words with similar overall frequency content can therefore be confused. This is the main tradeoff for keeping the code short and easy to understand.
 
-Say one of the trained commands when prompted. The saved model avoids repeating training for every trial. Keep microphone placement reasonably similar to enrollment.
+## 5. Choose a result
 
-## What has been tested?
+The word with the smallest score is the candidate. If its score is too high, or too close to the runner-up, the program says PLEASE REPEAT.
 
-The MATLAB files passed a static syntax check. An independent numerical implementation passed reconstruction, finite-output, signal-length, bounded-gain and DTW checks. It correctly recognized three held-out synthetic commands across three processing modes and two feature modes: eighteen condition/feature trials based on only three distinct test utterances. Tested silence and stationary noise returned `no speech`.
+A separate volume check compares the full recording with the initial background interval. If there is not enough extra energy, it says NO SPEECH DETECTED. This is a simple energy check, not a reliable speech detector for every environment. Sudden noise can trigger it, and quiet speech can be missed.
 
-For those mixtures, adaptive processing increased whole-file signal-to-noise ratio from 10 dB to approximately 14.8-15.0 dB. All three processing modes recognized the commands after training augmentation, so this does not prove that adaptation improves recognition accuracy.
+The thresholds in the code are starting values for a demonstration. They are not confidence percentages and need separate development recordings to tune.
 
-**MATLAB was not installed in the preparation environment. Native MATLAB execution and live microphone operation remain to be checked locally.** Details and limits are in `VERIFICATION.md`. Supplied files prefixed `reference_` are numerical reference outputs, not MATLAB screenshots or MATLAB execution results.
+## What the graphs show
 
-## Limitations and possible extensions
+1. **Original sound:** the noisy recording.
+2. **Filtered sound:** the result after removing frequencies outside the selected range.
+3. **Matching scores:** how different the input is from each command. Smaller is better.
 
-The current version recognizes isolated enrolled commands. It requires a brief background-only interval, and can fail with very quiet speech, sudden noise, another speaker, unknown words or substantially different microphones and rooms.
+## How to present it
 
-Useful extensions include more command recordings, independent human testing, a stronger speech detector and an action layer for a selected application. The source text's proposed fractional-transform neural architecture would require a separate training implementation and dataset; it is not implemented here.
+First run RUN_DEMO.m without a microphone. Change `testWord` to try each of the three words. Explain the two waveforms and the three matching scores.
 
-## A short explanation for a presentation
+For a personal live demonstration, train beforehand with TRAIN_MY_VOICE.m. Then set `useMicrophone = true` in RUN_DEMO.m. Stay quiet until SPEAK NOW appears, then say one command. Use the same microphone and a similar speaking distance.
 
-“Our project recognizes spoken commands in noisy environments. It first estimates background noise, reduces some of that noise, and extracts a compact pattern from the speech. It compares the pattern with trained examples and displays the recognized command. The graphs show the original sound, processed sound and recognition results. A future action layer could use the recognized command to operate an application.”
+## What we can honestly claim
+
+“We made a basic MATLAB program that recognizes three trained commands. It uses frequency filtering to reduce some noise and compares simple frequency patterns to identify the word.”
+
+It is not unrestricted speech-to-text, speaker identification, or a system that automatically understands every voice. The simple code does not operate other applications yet. That would need extra code mapping an accepted command to an application action.
+
+## How we checked it
+
+The simplified numerical method matched three supplied synthetic test words with added hum/noise. This is a small demonstration, not a human-speaker accuracy result. Static syntax checks passed, but native MATLAB execution and microphone operation still need local testing because MATLAB was not installed in the preparation environment.
