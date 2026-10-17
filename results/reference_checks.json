@@ -1,0 +1,16 @@
+{
+  "identity_max_error": 1.8041124150158794e-16,
+  "identity_lengths_checked": [
+    8000,
+    8017,
+    16000,
+    17321
+  ],
+  "finite_length_gain_mix_dtw": "PASS",
+  "mfcc_threshold": 0.6,
+  "mfcc_silence": "no speech",
+  "mfcc_noise": "no speech",
+  "gammatone_threshold": 0.6,
+  "gammatone_silence": "no speech",
+  "gammatone_noise": "no speech"
+}

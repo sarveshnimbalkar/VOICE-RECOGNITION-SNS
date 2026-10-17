@@ -1,0 +1,14 @@
+# Personal microphone enrollment and generated MATLAB output
+my_voice_*.mat
+results/demo_*
+results/latest_*
+results/signal_dashboard.png
+results/recognition_dashboard.png
+
+# MATLAB editor / desktop temporary files
+*.asv
+*.m~
+*.autosave
+slprj/
+.DS_Store
+Thumbs.db
