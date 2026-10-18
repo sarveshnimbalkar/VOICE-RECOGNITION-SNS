@@ -1,19 +1,16 @@
-% BASIC VOICE COMMAND RECOGNITION
-% Click Run. Change testWord to 'start', 'stop' or 'lights'.
+% Recognize START, STOP, or LIGHTS using recorded or supplied audio.
 useMicrophone = true;
 testWord = 'start';
-fs = 16000;                         % Samples recorded per second
+fs = 16000;
 words = {'start', 'stop', 'lights'};
 folder = fileparts(mfilename('fullpath'));
-addpath(folder);                    % Find sound_pattern from any Current Folder
+addpath(folder);
 
-% STEP 1: Get a sound recording.
 if useMicrophone
     trainingFolder = fullfile(folder, 'my_recordings');
     if ~exist(fullfile(trainingFolder, 'train_lights_3.wav'), 'file')
         error('First run TRAIN_MY_VOICE.m to record your examples.');
     end
-    % A visible dialog avoids looking stuck at a hidden Command Window prompt.
     ready = questdlg('Click Record, stay quiet briefly, then speak when prompted.', ...
         'Voice command recognition', 'Record', 'Cancel', 'Record');
     if ~strcmp(ready, 'Record')
@@ -30,16 +27,14 @@ else
     trainingFolder = fullfile(folder, 'demo_audio');
     [x, rate] = audioread(fullfile(trainingFolder, ['test_' testWord '.wav']));
     assert(rate == fs, 'Audio must be 16000 Hz.');
-    % Add hum and random noise so we can demonstrate noisy input.
     rng(7);
     time = (0:length(x)-1)' / fs;
     noise = 0.7*sin(2*pi*120*time) + 0.3*randn(size(x));
     noise = noise * sqrt(sum(x.^2) / (10*sum(noise.^2)));
-    x = x + noise;                  % 10 dB whole-recording input SNR
+    x = x + noise;                  % 10 dB whole-recording SNR
 end
 
-% STEP 2: Check that the recording has more energy than background alone.
-% The first 0.25 seconds must contain background noise only.
+% The first 0.25 s must contain background noise only.
 noisePart = x(1:round(0.25*fs));
 volume = sqrt(mean(x.^2));
 noiseVolume = sqrt(mean(noisePart.^2));
@@ -51,10 +46,8 @@ if volume < 0.0001 || volume < 1.5*noiseVolume
     return;
 end
 
-% STEP 3: Filter the sound and calculate its frequency fingerprint.
 [pattern, filteredSound] = sound_pattern(x, fs);
 
-% STEP 4: Compare with three examples of each known command.
 scores = zeros(1, 3);
 for wordNumber = 1:3
     bestScore = inf;
@@ -71,7 +64,6 @@ for wordNumber = 1:3
     scores(wordNumber) = bestScore;
 end
 
-% STEP 5: Choose the closest command, or ask the user to repeat.
 [bestScore, position] = min(scores);
 sortedScores = sort(scores);
 gap = (sortedScores(2)-bestScore) / max(sortedScores(2), eps);
@@ -87,9 +79,8 @@ else
     resultMessage = sprintf('Recognized command: %s', command);
 end
 msgbox(resultMessage, 'Recognition result');
-drawnow;                           % Show the result before building the plots
+drawnow;
 
-% STEP 6: Show the signals and the matching scores.
 time = (0:length(x)-1)' / fs;
 figure('Name', 'Basic voice recognition', 'Color', 'w');
 subplot(3,1,1); plot(time, x); grid on;
@@ -99,4 +90,3 @@ title('Sound after frequency filtering'); xlabel('Time (seconds)'); ylabel('Ampl
 subplot(3,1,3); bar(scores); grid on;
 set(gca, 'XTick', 1:3, 'XTickLabel', words);
 title(['Result: ' command]); ylabel('Difference: smaller is better');
-% Optional playback: sound(filteredSound, fs);

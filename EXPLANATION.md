@@ -72,4 +72,4 @@ It is not unrestricted speech-to-text, speaker identification, or a system that 
 
 ## How we checked it
 
-The simplified numerical method matched three supplied synthetic test words with added hum/noise. This is a small demonstration, not a human-speaker accuracy result. Static syntax checks passed, but native MATLAB execution and microphone operation still need local testing because MATLAB was not installed in the preparation environment.
+The simplified numerical method matched three supplied synthetic test words with added hum/noise. This is a small demonstration, not a human-speaker accuracy result. Example microphone runs in MATLAB R2026a produced STOP and LIGHTS outputs; screenshots are included in the README. These examples do not establish accuracy on unseen recordings or speakers.

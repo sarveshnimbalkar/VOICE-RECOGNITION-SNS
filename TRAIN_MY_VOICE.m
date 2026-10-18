@@ -1,3 +1,4 @@
+% Record three reference utterances per command at 16 kHz.
 fs = 16000;
 words = {'start', 'stop', 'lights'};
 folder = fullfile(fileparts(mfilename('fullpath')), 'my_recordings');
