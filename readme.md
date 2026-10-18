@@ -33,22 +33,22 @@ Open the repository folder in MATLAB and set it as the **Current Folder**.
 
 ### Supplied audio demonstration
 
-In `RUN_DEMO.m`, set:
+In `run_demo.m`, set:
 
 ```matlab
 useMicrophone = false;
 testWord = 'start';   % 'start', 'stop', or 'lights'
 ```
 
-Run `RUN_DEMO.m`. The script loads the selected synthetic test clip and adds reproducible 120 Hz hum and random noise at a whole-recording input SNR of 10 dB. References are read from `demo_audio/`.
+Run `run_demo.m`. The script loads the selected synthetic test clip and adds reproducible 120 Hz hum and random noise at a whole-recording input SNR of 10 dB. References are read from `demo_audio/`.
 
 ### Microphone recognition
 
 The checked-in script currently uses `useMicrophone = true`.
 
-1. Run `TRAIN_MY_VOICE.m` and record three examples of each prompted command. Press Enter in the Command Window when ready for each example.
+1. Run `train_my_voice.m` and record three examples of each prompted command. Press Enter in the Command Window when ready for each example.
 2. Remain quiet during the initial interval and speak after **SPEAK NOW**.
-3. Run `RUN_DEMO.m` with `useMicrophone = true` and click **Record** in the readiness dialog.
+3. Run `run_demo.m` with `useMicrophone = true` and click **Record** in the readiness dialog.
 4. Speak one trained command after **SPEAK NOW: START, STOP or LIGHTS** appears in the Command Window.
 
 Use a consistent microphone position, speaking distance, and pronunciation. Training again overwrites the nine local reference recordings. The `my_recordings/` directory is excluded from version control.
@@ -57,11 +57,11 @@ Use a consistent microphone position, speaking distance, and pronunciation. Trai
 
 The screenshots below document example microphone runs in MATLAB. The figure was redrawn from the existing run's recorded signal, filtered signal, and matching scores with presentation formatting; recognition values were retained.
 
-![Recorded speech, filtered speech, and class distances for a LIGHTS prediction](docs/images/recognition-figures.png)
+![Recorded speech, filtered speech, and class distances for a LIGHTS prediction](docs/images/recognition_figures.png)
 
 *Figure 1. Recorded and filtered waveforms with squared Euclidean matching distances. LIGHTS has the smallest class distance and is the accepted prediction in this example.*
 
-![MATLAB Command Window showing STOP and LIGHTS prediction outputs](docs/images/prediction-output.png)
+![MATLAB Command Window showing STOP and LIGHTS prediction outputs](docs/images/prediction_output.png)
 
 *Figure 2. Command Window output from example runs reporting STOP and LIGHTS. The script also presents the result in a separate Recognition result dialog.*
 
@@ -71,12 +71,11 @@ An independent numerical check of the supplied synthetic clips matched all three
 
 | Path | Description |
 |---|---|
-| `RUN_DEMO.m` | Audio acquisition, speech activity check, matching, result dialog, and plots |
+| `run_demo.m` | Audio acquisition, speech activity check, matching, result dialog, and plots |
 | `sound_pattern.m` | FFT-domain filtering and 24-band spectral descriptor extraction |
-| `TRAIN_MY_VOICE.m` | Acquisition of three reference recordings per command |
+| `train_my_voice.m` | Acquisition of three reference recordings per command |
 | `demo_audio/` | Supplied synthetic reference and test WAV files |
 | `docs/images/` | Screenshots used in this README |
-| `EXPLANATION.md` | Additional walkthrough of the processing steps |
 | `my_recordings/` | Local microphone references; ignored by Git |
 
 ## Limitations

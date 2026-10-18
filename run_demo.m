@@ -9,7 +9,7 @@ addpath(folder);
 if useMicrophone
     trainingFolder = fullfile(folder, 'my_recordings');
     if ~exist(fullfile(trainingFolder, 'train_lights_3.wav'), 'file')
-        error('First run TRAIN_MY_VOICE.m to record your examples.');
+        error('First run train_my_voice.m to record your examples.');
     end
     ready = questdlg('Click Record, stay quiet briefly, then speak when prompted.', ...
         'Voice command recognition', 'Record', 'Cancel', 'Record');
