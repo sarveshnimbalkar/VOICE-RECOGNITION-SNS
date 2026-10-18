@@ -10,7 +10,7 @@ A beginner project that recognizes **START, STOP and LIGHTS** from short audio r
 
 No extra MATLAB toolboxes are required. The demo uses supplied synthetic speech, so you do not need to speak. Change `testWord = 'start'` to `'stop'` or `'lights'` to try the other commands.
 
-The output is a recognized command and three plots: noisy input, filtered sound, and matching scores. A smaller matching score means a closer match.
+The recognized command appears in a separate **Recognition result** dialog and in the Command Window. If no speech is detected or the match is uncertain, the dialog asks you to try again. Three plots show noisy input, filtered sound, and matching scores. A smaller matching score means a closer match.
 
 ## Use your voice
 

@@ -1,12 +1,11 @@
 % BASIC VOICE COMMAND RECOGNITION
 % Click Run. Change testWord to 'start', 'stop' or 'lights'.
-% To use your microphone, first run TRAIN_MY_VOICE, then set useMicrophone=true.
-
-useMicrophone = false;
+useMicrophone = true;
 testWord = 'start';
 fs = 16000;                         % Samples recorded per second
 words = {'start', 'stop', 'lights'};
 folder = fileparts(mfilename('fullpath'));
+addpath(folder);                    % Find sound_pattern from any Current Folder
 
 % STEP 1: Get a sound recording.
 if useMicrophone
@@ -14,7 +13,13 @@ if useMicrophone
     if ~exist(fullfile(trainingFolder, 'train_lights_3.wav'), 'file')
         error('First run TRAIN_MY_VOICE.m to record your examples.');
     end
-    input('Press Enter when ready to speak.', 's');
+    % A visible dialog avoids looking stuck at a hidden Command Window prompt.
+    ready = questdlg('Click Record, stay quiet briefly, then speak when prompted.', ...
+        'Voice command recognition', 'Record', 'Cancel', 'Record');
+    if ~strcmp(ready, 'Record')
+        disp('Recording cancelled.');
+        return;
+    end
     recorder = audiorecorder(fs, 16, 1);
     record(recorder);
     disp('Stay quiet...'); pause(0.5);
@@ -40,6 +45,9 @@ volume = sqrt(mean(x.^2));
 noiseVolume = sqrt(mean(noisePart.^2));
 if volume < 0.0001 || volume < 1.5*noiseVolume
     disp('NO SPEECH DETECTED. Try again.');
+    msgbox('No speech detected. Run again and speak after SPEAK NOW.', ...
+        'Recognition result', 'warn');
+    drawnow;
     return;
 end
 
@@ -73,6 +81,13 @@ else
     command = upper(words{position});
 end
 fprintf('Recognized command: %s\n', command);
+if strcmp(command, 'PLEASE REPEAT')
+    resultMessage = 'Could not confidently recognize a command. Please repeat.';
+else
+    resultMessage = sprintf('Recognized command: %s', command);
+end
+msgbox(resultMessage, 'Recognition result');
+drawnow;                           % Show the result before building the plots
 
 % STEP 6: Show the signals and the matching scores.
 time = (0:length(x)-1)' / fs;
