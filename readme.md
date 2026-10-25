@@ -1,90 +1,106 @@
-# Voice Command Recognition Using Spectral Features in MATLAB
+# Speaker Identification Using MFCC Features in MATLAB
 
-An academic mini-project in signals and systems that implements isolated-word recognition for **START**, **STOP**, and **LIGHTS**. The system combines frequency-domain filtering, background-power estimation, and reference-template matching to demonstrate a compact speech signal processing pipeline.
+An academic signals and systems mini-project that identifies **which enrolled person is speaking**. Each speaker supplies five recordings of a common phrase. The system extracts mel-frequency cepstral coefficients (MFCCs), builds a spectral profile for each person, and compares a new recording with the enrolled profiles.
 
-## Objective
+## Objective and Scope
 
-To acquire a short speech recording, reduce frequency components outside the selected speech band, extract a normalized spectral descriptor, and classify the recording against a small vocabulary. The implementation supports microphone input and a reproducible demonstration using supplied synthetic audio.
+The project implements a **text-dependent, closed-set speaker identification** baseline: every participant repeats the same phrase, and the system selects the closest enrolled speaker. Enrollment accepts any display name and supports adding people without editing the source code.
 
-## Methodology
-
-1. **Acquisition:** Record mono audio at 16 kHz, or load a supplied test clip. Microphone acquisition uses 16-bit samples and approximately 2.5 seconds of recording, including an initial quiet interval.
-2. **Speech activity check:** Compare the recording's root-mean-square amplitude with the first 0.25 seconds of background audio. Reject recordings with insufficient additional energy.
-3. **Frequency filtering:** Apply an FFT-domain mask retaining 200–4000 Hz and the corresponding negative-frequency bins. Transform the masked spectrum back to the time domain for visualization.
-4. **Feature extraction:** Partition the positive-frequency speech band into 24 equal bands. Subtract estimated background power from each band's mean power, apply a logarithm with a numerical floor, remove the feature mean, and normalize to unit length.
-5. **Template matching:** Compute squared Euclidean distances between the input descriptor and three reference recordings per command. Retain the smallest distance for each class.
-6. **Decision:** Accept the nearest class when its distance is at most 0.30 and its relative separation from the second-best class is at least 0.15. Otherwise, display **PLEASE REPEAT**.
-
-For input descriptor **p** and reference descriptor **t**, the matching distance is:
-
-$$d(\mathbf{p},\mathbf{t}) = \sum_{b=1}^{24}(p_b-t_b)^2$$
-
-The relative separation is $(d_2-d_1)/\max(d_2,\varepsilon)$, where $d_1$ and $d_2$ are the two smallest class distances. These values are distances and decision heuristics, rather than calibrated probabilities.
+This version replaces the earlier START/STOP/LIGHTS command classifier. The output is a person's enrolled name. It does not transcribe speech, verify a claimed identity, or reliably detect an unregistered speaker.
 
 ## Requirements
 
-- MATLAB with audio recording, WAV file I/O, FFT, and plotting support; example outputs were observed in **MATLAB R2026a**.
-- No additional MATLAB toolboxes are required by the implementation.
-- A working microphone and operating-system microphone permission for live recognition.
+- MATLAB with audio I/O, plotting, and standard numerical operations. Automated pipeline checks were run in MATLAB R2026a.
+- No additional MATLAB toolboxes are required; the MFCC filter bank and cosine transform are implemented directly.
+- A working microphone and microphone permission for live enrollment and identification.
+- At least **two different people**, with five enrollment recordings each.
 
-## Execution
+## Enrollment
 
-Open the repository folder in MATLAB and set it as the **Current Folder**.
+1. Open the repository folder in MATLAB and make it the Current Folder.
+2. Run `train_my_voice.m` and enter the first speaker's name.
+3. For each of the five recordings, click **Record**, remain quiet during the initial interval, and read the displayed phrase after **SPEAK NOW**:
 
-### Supplied audio demonstration
+   > This is my voice for identification.
 
-In `run_demo.m`, set:
+4. Repeat `train_my_voice.m` for each additional person using a different name.
+
+Each recording includes 0.5 seconds of background followed by a four-second speaking interval. Use a natural, consistent voice and complete the phrase within the speaking interval. Enrollment requests another recording if it detects insufficient speech. Cancelling an incomplete enrollment retains the existing profiles.
+
+Re-entering an existing name, ignoring letter case, offers to replace that person's enrollment. Names are stored as labels; recording folders use numeric identifiers, so display names do not become file paths.
+
+## Identification
+
+Run `run_demo.m` and choose an input:
+
+| Input | Procedure |
+|---|---|
+| **Microphone** | Click Record and read the same phrase after the visible SPEAK NOW cue. |
+| **WAV file** | Select a new 16 kHz recording of the same phrase, with at least 0.25 seconds of initial background audio. |
+
+Use a fresh recording for testing rather than an enrollment file. The result appears in a **Speaker identification result** dialog and in the Command Window. The figure shows the input waveform, the selected speech frames' MFCCs, and a distance for each speaker. Smaller distances indicate closer matches.
+
+If the two best scores are too similar, the interface displays **Uncertain match** and the closest enrolled name. This ambiguity check does not constitute unknown-speaker rejection. A person who was never enrolled may still receive an enrolled person's name.
+
+## Signal Processing Method
+
+1. **Preprocessing:** Convert multichannel audio to mono, remove the sample mean, and apply an FFT-domain mask retaining 80–7600 Hz and its negative-frequency counterpart.
+2. **Frame selection:** Form 25 ms frames at 10 ms intervals. Select frames whose mean-square energy exceeds the maximum of four times the initial background power, 1% of the maximum frame power, and a small absolute floor. Require at least 0.5 seconds of selected frames.
+3. **MFCC extraction:** Apply pre-emphasis with coefficient 0.97, a Hamming window, a 512-point FFT, 26 triangular mel filters, logarithmic compression, and a discrete cosine transform. Retain coefficients 1–13, excluding coefficient zero.
+4. **Utterance representation:** Concatenate the temporal mean and standard deviation of the 13 coefficients to obtain a 26-dimensional descriptor.
+5. **Enrollment:** Store five descriptors per person. Their mean defines the speaker centroid.
+6. **Classification:** Compare the test descriptor with each centroid using mean squared distance after coordinate scaling learned only from enrollment descriptors. The scale floor is 0.5.
+
+For test descriptor **p**, speaker centroid **c** and enrollment-derived scale **s**, the class distance is:
+
+$$d(\mathbf{p},\mathbf{c})=\frac{1}{26}\sum_{b=1}^{26}\left(\frac{p_b-c_b}{s_b}\right)^2$$
+
+The ambiguity margin is $(d_2-d_1)/\max(d_2,\varepsilon)$, where $d_1$ and $d_2$ are the smallest class distances. A margin below 0.10 produces the uncertain result. The threshold is an initial heuristic; distances and margins are not identity confidence probabilities.
+
+MFCCs are also used in the [MathWorks speaker identification example](https://www.mathworks.com/help/audio/ug/speaker-identification-using-pitch-and-mfcc.html). This project uses its own mean/std descriptor and nearest-centroid implementation rather than that example's toolbox-based classifier.
+
+## Validation and Example Figure
+
+![MATLAB synthetic pipeline check showing a speech-like waveform, MFCCs, and distances to two synthetic profiles](docs/images/speaker_validation.png)
+
+*Figure 1. MATLAB output for a generated speech-like signal and two synthetic profiles. This checks feature extraction, scoring, and plotting. It is not a human speaker identification result.*
+
+Run the automated checks from the project folder:
 
 ```matlab
-useMicrophone = false;
-testWord = 'start';   % 'start', 'stop', or 'lights'
+addpath('tests');
+test_speaker_identification;
 ```
 
-Run `run_demo.m`. The script loads the selected synthetic test clip and adds reproducible 120 Hz hum and random noise at a whole-recording input SNR of 10 dB. References are read from `demo_audio/`.
+The checks cover synthetic profiles with separate test realizations, gain invariance, mono/row/stereo inputs, WAV import, silence, stationary noise, insufficient audio, unsupported sample rates, invalid profiles, and tied scores. To regenerate Figure 1:
 
-### Microphone recognition
+```matlab
+test_speaker_identification(fullfile(pwd, 'docs', 'images'));
+```
 
-The checked-in script currently uses `useMicrophone = true`.
-
-1. Run `train_my_voice.m` and record three examples of each prompted command. Press Enter in the Command Window when ready for each example.
-2. Remain quiet during the initial interval and speak after **SPEAK NOW**.
-3. Run `run_demo.m` with `useMicrophone = true` and click **Record** in the readiness dialog.
-4. Speak one trained command after **SPEAK NOW: START, STOP or LIGHTS** appears in the Command Window.
-
-Use a consistent microphone position, speaking distance, and pronunciation. Training again overwrites the nine local reference recordings. The `my_recordings/` directory is excluded from version control.
-
-## Example Results
-
-The screenshots below document example microphone runs in MATLAB. The figure was redrawn from the existing run's recorded signal, filtered signal, and matching scores with presentation formatting; recognition values were retained.
-
-![Recorded speech, filtered speech, and class distances for a LIGHTS prediction](docs/images/recognition_figures.png)
-
-*Figure 1. Recorded and filtered waveforms with squared Euclidean matching distances. LIGHTS has the smallest class distance and is the accepted prediction in this example.*
-
-![MATLAB Command Window showing STOP and LIGHTS prediction outputs](docs/images/prediction_output.png)
-
-*Figure 2. Command Window output from example runs reporting STOP and LIGHTS. The script also presents the result in a separate Recognition result dialog.*
-
-An independent numerical check of the supplied synthetic clips matched all three commands with the specified added noise. The screenshots illustrate execution and output presentation; they do not establish accuracy, generalization across speakers, or performance on unknown commands. No held-out human-speaker benchmark or aggregate accuracy estimate is reported.
+**Human identification accuracy has not been measured.** Collect separate enrollment and test sessions from multiple people, keep the phrase and equipment consistent initially, and report a confusion matrix and per-speaker results before making accuracy claims. Test unregistered speakers separately if developing an unknown-speaker rejection rule.
 
 ## Repository Structure
 
-| Path | Description |
+| Path | Purpose |
 |---|---|
-| `run_demo.m` | Audio acquisition, speech activity check, matching, result dialog, and plots |
-| `sound_pattern.m` | FFT-domain filtering and 24-band spectral descriptor extraction |
-| `train_my_voice.m` | Acquisition of three reference recordings per command |
-| `demo_audio/` | Supplied synthetic reference and test WAV files |
-| `docs/images/` | Screenshots used in this README |
-| `my_recordings/` | Local microphone references; ignored by Git |
+| `train_my_voice.m` | Named speaker enrollment and local profile storage |
+| `run_demo.m` | Live or file-based identification and result presentation |
+| `record_voice.m` | Shared recording dialog with visible quiet/speak cues |
+| `sound_pattern.m` | Speech frame selection and MFCC descriptor extraction |
+| `identify_speaker.m` | Profile validation, normalized distances, and ambiguity handling |
+| `tests/test_speaker_identification.m` | Automated synthetic and input-validation checks |
+| `speaker_profiles.mat` | Local speaker names and feature templates; ignored by Git |
+| `speaker_recordings/` | Local enrollment WAV files; ignored by Git |
+| `docs/images/speaker_validation.png` | Synthetic pipeline validation figure |
+
+The earlier `demo_audio/` command clips, `my_recordings/` command recordings, and command-result images are legacy artifacts. They have no verified multi-speaker labels and are not loaded by this system. New speaker enrollment is required.
 
 ## Limitations
 
-- The first 0.25 seconds of each recording must contain background audio only.
-- Filtering removes components outside 200–4000 Hz; overlapping speech and in-band noise remain. An abrupt frequency mask may introduce ringing.
-- Background-power subtraction operates on recognition features. The displayed filtered waveform is obtained from the frequency mask alone.
-- Averaging spectral power over the full recording discards temporal order, limiting discrimination between acoustically similar commands.
-- Recognition depends on the reference speaker and recording conditions. Unknown words or sudden noise can still be accepted incorrectly.
-- Decision thresholds are initial demonstration settings and require independent development data for tuning.
-
-The project performs isolated-command classification. General speech transcription, speaker identification, and application control are outside its implemented scope.
+- MFCC statistics also reflect the phrase, microphone, noise, and room acoustics. This baseline assumes the same phrase and similar conditions for enrollment and testing.
+- Averaging features loses temporal detail and limits discrimination between similar voices.
+- The energy gate does not establish that a signal is human speech; sudden noise can pass it.
+- The system selects among enrolled people and has no calibrated absolute rejection threshold for unregistered speakers.
+- It does not include replay detection or spoofing resistance and is not intended as an authentication mechanism.
+- Speaker names, recordings, and feature templates remain local and are excluded from version control.

@@ -1,5 +1,7 @@
 # Private voice recordings and MATLAB temporary files
 my_recordings/
+speaker_recordings/
+speaker_profiles.mat
 *.asv
 *.m~
 *.autosave
