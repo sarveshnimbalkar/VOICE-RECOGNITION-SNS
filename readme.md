@@ -4,6 +4,77 @@ A Signals and Systems mini-project that identifies **which enrolled person is sp
 
 Each person enrolls five recordings of the same phrase. A new recording is compared with the enrolled speaker profiles, and the selected person's name is displayed. This is a **text-dependent, closed-set** system: the phrase should remain the same, and the candidate identities are the enrolled people.
 
+## Project Architecture
+
+```mermaid
+flowchart TD
+    startNode(["Start"]) --> scriptChoice{"Run which script?"}
+
+    subgraph enrollment ["Speaker enrollment - train_my_voice.m"]
+        enrollSetup["Load profiles and enter speaker name"]
+        enrollReady{"Valid setup and replacement approved if needed?"}
+        enrollRecord["Record the common phrase at 16 kHz"]
+        enrollFeatures[["Validate speech and extract MFCC descriptor"]]
+        enrollValid{"Feature extraction successful?"}
+        enrollRetry["Show warning and retry the same example"]
+        fiveComplete{"Five valid recordings collected?"}
+        profileStore[("Save named profiles and enrollment WAV files locally")]
+        enrollSuccess["Show enrollment confirmation"]
+
+        enrollSetup --> enrollReady
+        enrollReady -->|"Yes"| enrollRecord
+        enrollRecord -->|"Recorded"| enrollFeatures
+        enrollFeatures --> enrollValid
+        enrollValid -->|"No"| enrollRetry
+        enrollRetry --> enrollRecord
+        enrollValid -->|"Yes"| fiveComplete
+        fiveComplete -->|"No"| enrollRecord
+        fiveComplete -->|"Yes"| profileStore
+        profileStore --> enrollSuccess
+    end
+
+    subgraph identification ["Speaker identification - run_demo.m"]
+        loadProfiles["Load enrolled speaker profiles"]
+        profilesReady{"Valid profiles for at least two speakers?"}
+        acquireAudio["Choose microphone or WAV and acquire a new phrase"]
+        queryFeatures[["Validate speech and extract MFCC descriptor"]]
+        queryValid{"Feature extraction successful?"}
+        matchSpeakers["Scale features and compare with speaker centroids"]
+        marginCheck{"Relative score margin below 0.10?"}
+        uncertainResult["Show uncertain match and closest enrolled name"]
+        identifiedResult["Show identified speaker name"]
+        showPlots["Display waveform, MFCCs and speaker distances"]
+
+        loadProfiles --> profilesReady
+        profilesReady -->|"Yes"| acquireAudio
+        acquireAudio -->|"Audio acquired"| queryFeatures
+        queryFeatures --> queryValid
+        queryValid -->|"Yes"| matchSpeakers
+        matchSpeakers --> marginCheck
+        marginCheck -->|"Yes"| uncertainResult
+        marginCheck -->|"No"| identifiedResult
+        uncertainResult --> showPlots
+        identifiedResult --> showPlots
+    end
+
+    scriptChoice -->|"train_my_voice.m"| enrollSetup
+    scriptChoice -->|"run_demo.m"| loadProfiles
+    enrollReady -->|"Invalid setup"| showError["Show error or enrollment requirement"]
+    enrollReady -->|"Cancelled or declined"| cancelled["Cancel the current run"]
+    enrollRecord -->|"Cancelled"| cancelled
+    profilesReady -->|"No"| showError
+    acquireAudio -->|"Cancelled"| cancelled
+    queryValid -->|"No"| showError
+    enrollSuccess --> stopNode(["Stop"])
+    showPlots --> stopNode
+    showError --> stopNode
+    cancelled --> stopNode
+```
+
+Both MFCC blocks use `sound_pattern.m`: mono conversion and DC removal → 80–7600 Hz FFT filtering → speech frame selection → pre-emphasis, Hamming window and frame FFT → mel-band powers, logarithm and DCT → a 26-value mean/std descriptor. Identification uses `identify_speaker.m` to compare that descriptor with enrolled profiles.
+
+Enrollment and identification are separate script runs. Run enrollment again for each person, then start identification after at least two people are enrolled. An uncertain identification finishes the current run; start `run_demo.m` again to repeat. Expected errors and cancellation paths terminate at **Stop**; retry loops are limited to enrollment recording attempts. The diagram summarizes normal operation and handled validation failures rather than unexpected device or file-system exceptions.
+
 ## Course Alignment
 
 The explanation follows the unit sequence and course outcomes of **Signals and Systems, 702EX0C010, academic year 2026–27**. The course policy specifies topics rather than a particular equation notation; the formulas below use conventional signals and systems notation.
