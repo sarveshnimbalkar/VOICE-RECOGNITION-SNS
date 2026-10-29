@@ -121,6 +121,14 @@ The result appears in a dialog and in the Command Window. A figure displays the 
 
 If the two closest scores are similar, the result is **Uncertain match**. This is an ambiguity check, not reliable rejection of an unregistered person.
 
+### Sharing enrollment audio through GitHub
+
+Enrollment WAV files in `speaker_recordings/` are currently included in version control so collaborators can exchange samples. New recordings must be committed and pushed, and the other collaborator must pull the changes.
+
+Pull the latest changes before adding samples. Each computer assigns numeric folders from its own local profiles, so two people can independently produce `speaker_001/`. Preserve downloaded recordings before running enrollment with a different local profile database: the script can overwrite that same numeric folder. Add your friend's files under a distinct folder, such as `speaker_friend/`, rather than replacing an existing contributor's samples. Renaming a recording folder does not affect saved feature profiles, which are stored separately.
+
+The generated `speaker_profiles.mat` database remains local and ignored by Git. Downloaded WAV files are available for sharing and analysis, but the application does not automatically rebuild or merge speaker profiles from them.
+
 ## Notation
 
 | Symbol | Meaning |
@@ -399,7 +407,7 @@ Human identification accuracy has not been measured. Evaluate fresh recordings f
 | `identify_speaker.m` | Profile validation and minimum-distance classification |
 | `tests/test_speaker_identification.m` | Automated pipeline and input-validation checks |
 | `speaker_profiles.mat` | Local names and feature templates; ignored by Git |
-| `speaker_recordings/` | Local enrollment recordings; ignored by Git |
+| `speaker_recordings/` | Enrollment WAV samples shared through GitHub |
 | `docs/images/speaker_validation.png` | Synthetic validation figure |
 
 The `demo_audio/` and `my_recordings/` directories and older result images are legacy assets without verified multi-speaker labels. They are not loaded by this system. Enroll each participant afresh.
@@ -412,4 +420,4 @@ The `demo_audio/` and `my_recordings/` directories and older result images are l
 - The energy gate can admit noise, and the band mask cannot remove all interference.
 - There is no calibrated rejection threshold for unregistered people, replay detection, or spoofing resistance.
 - The project is an educational speaker-identification baseline, not an authentication mechanism.
-- Speaker names, recordings, and feature templates remain local and are excluded from version control.
+- Enrollment WAV recordings are currently shared through GitHub. Speaker names and feature templates in `speaker_profiles.mat` remain local and excluded from version control.
