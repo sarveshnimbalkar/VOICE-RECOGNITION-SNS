@@ -58,8 +58,10 @@ catch problem
 end
 scale = max(std(reshape(features, 26, []), 0, 2), 0.5);
 scores = zeros(1, numel(speakers));
+speakerMeans = zeros(13, numel(speakers));
 for speakerNumber = 1:numel(speakers)
     centroid = mean(features(:, :, speakerNumber), 2);
+    speakerMeans(:, speakerNumber) = centroid(1:13);
     scores(speakerNumber) = mean(((pattern-centroid)./scale).^2);
 end
 [ordered, positions] = sort(scores);
@@ -89,14 +91,46 @@ else
     x = mean(x, 2);
 end
 time = (0:length(x)-1)'/fs;
-figure('Name', 'Speaker identification', 'Color', 'w');
-subplot(3,1,1); plot(time, x); grid on;
+figure('Name', 'Speaker identification', 'Color', 'w', 'Position', [80 60 1100 900]);
+subplot(4,1,1); plot(time, x); grid on;
 title('Recorded speech'); xlabel('Time (s)'); ylabel('Amplitude');
-subplot(3,1,2); imagesc(details.cepstra); axis xy;
+subplot(4,1,2);
+plot(details.fft_frequency, 20*log10(max(details.fft_input, 1e-12)), ...
+    details.fft_frequency, 20*log10(max(details.fft_filtered, 1e-12)));
+grid on; xlim([0 fs/2]);
+title('Full-record FFT before and after filtering'); xlabel('Frequency (Hz)'); ylabel('Magnitude (dB)');
+legend('Before filtering', 'After filtering', 'Location', 'best');
+subplot(4,1,3); imagesc(details.cepstra); axis xy;
 title('MFCCs of selected speech frames'); xlabel('Selected speech frame'); ylabel('Coefficient');
 colorbar('Color', 'k');
-subplot(3,1,3); bar(scores); grid on;
+subplot(4,1,4); bar(scores); grid on;
 set(gca, 'XTick', 1:numel(names), 'XTickLabel', names, 'TickLabelInterpreter', 'none');
 title(plotTitle, 'Interpreter', 'none'); ylabel('Distance (lower is closer)');
 set(findall(gcf, 'Type', 'axes'), 'Color', 'w', 'XColor', 'k', 'YColor', 'k');
 set(findall(gcf, 'Type', 'text'), 'Color', 'k');
+set(findall(gcf, 'Type', 'legend'), 'Color', 'w', 'TextColor', 'k');
+
+coefficients = 1:13;
+colors = lines(numel(speakers));
+meanDifferences = pattern(1:13)-speakerMeans;
+figure('Name', 'Speaker mean comparison', 'Color', 'w', 'Position', [140 80 1100 720]);
+subplot(2,1,1);
+plot(coefficients, pattern(1:13), '-ko', 'LineWidth', 2); hold on;
+for speakerNumber = 1:numel(speakers)
+    plot(coefficients, speakerMeans(:, speakerNumber), '-o', ...
+        'Color', colors(speakerNumber, :), 'LineWidth', 1.2);
+end
+grid on; xlim([1 13]); xticks(coefficients);
+title('Current voice and enrolled speaker means'); xlabel('MFCC coefficient'); ylabel('Mean MFCC value');
+legend([{'Current voice'} names], 'Interpreter', 'none', 'Location', 'best');
+subplot(2,1,2);
+bars = bar(coefficients, meanDifferences, 'grouped');
+for speakerNumber = 1:numel(speakers)
+    bars(speakerNumber).FaceColor = colors(speakerNumber, :);
+end
+grid on; xticks(coefficients); yline(0, 'k-');
+title('Current mean minus each enrolled speaker mean'); xlabel('MFCC coefficient'); ylabel('Signed difference');
+legend(bars, names, 'Interpreter', 'none', 'Location', 'best');
+set(findall(gcf, 'Type', 'axes'), 'Color', 'w', 'XColor', 'k', 'YColor', 'k');
+set(findall(gcf, 'Type', 'text'), 'Color', 'k');
+set(findall(gcf, 'Type', 'legend'), 'Color', 'w', 'TextColor', 'k');

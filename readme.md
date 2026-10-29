@@ -60,7 +60,10 @@ Open the project folder in MATLAB. No additional toolboxes are required.
 
 > This is my voice for identification.
 
-The result appears in a dialog and the Command Window. The figure displays the waveform, MFCCs, and matching distances. Lower distances indicate a closer match. Similar scores produce **Uncertain match**.
+The result appears in a dialog and the Command Window, with two figures:
+
+- **Speaker identification:** the waveform, the full-record FFT before and after filtering, MFCCs, and matching distances. Lower distances indicate a closer match. Similar scores produce **Uncertain match**.
+- **Speaker mean comparison:** the current voice's mean MFCCs overlaid with each enrolled speaker's means, followed by the signed difference (current mean minus speaker mean) for each coefficient. Values closer to zero indicate similar means. These plots show the 13 mean features; identification still uses all 26 mean and standard-deviation features with enrollment-derived scaling.
 
 **To add a speaker:** run `train_my_voice.m`, enter their name, and record five examples. Stay quiet until **SPEAK NOW**, then finish the phrase within four seconds. Poor recordings are retried. Cancelling an unfinished enrollment keeps the existing recordings. Replacing an existing speaker folder requires confirmation.
 

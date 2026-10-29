@@ -21,9 +21,16 @@ x = x - mean(x);
 fftSize = 2^nextpow2(length(x));
 frequency = (0:fftSize-1)' * fs / fftSize;
 spectrum = fft(x, fftSize);
+positiveBins = 1:fftSize/2+1;
+details.fft_frequency = frequency(positiveBins);
+details.fft_input = abs(spectrum(positiveBins))/length(x);
 keep = (frequency >= 80 & frequency <= 7600) | ...
        (frequency >= fs-7600 & frequency <= fs-80);
 spectrum(~keep) = 0;
+details.fft_filtered = abs(spectrum(positiveBins))/length(x);
+% Double the positive-frequency amplitudes, excluding DC and Nyquist.
+details.fft_input(2:end-1) = 2*details.fft_input(2:end-1);
+details.fft_filtered(2:end-1) = 2*details.fft_filtered(2:end-1);
 filteredSound = real(ifft(spectrum));
 filteredSound = filteredSound(1:length(x));
 
