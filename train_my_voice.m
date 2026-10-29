@@ -1,4 +1,4 @@
-% Enroll five utterances under a speaker's name; repeat for each person.
+% Save five enrollment recordings in speaker_recordings/speaker_<name>.
 fs = 16000;
 phrase = 'This is my voice for identification.';
 folder = fileparts(mfilename('fullpath'));
@@ -8,30 +8,17 @@ if isempty(answer)
     return;
 end
 speakerName = strtrim(answer{1});
-try
-    recordingFolder = fullfile(folder, 'speaker_recordings', speaker_folder_name(speakerName));
-catch problem
-    errordlg(problem.message, 'Speaker enrollment');
+slug = lower(speakerName);
+slug(~isstrprop(slug, 'alphanum')) = '_';
+slug = regexprep(slug, '_+', '_');
+slug = regexprep(slug, '^_|_$', '');
+if isempty(slug) || any(double(speakerName) < 32)
+    errordlg('Enter a speaker name containing letters or numbers.', 'Speaker enrollment');
     return;
 end
+recordingFolder = fullfile(folder, 'speaker_recordings', ['speaker_' slug]);
 if exist(recordingFolder, 'dir')
-    metadataFile = fullfile(recordingFolder, 'speaker.json');
-    if ~isfile(metadataFile)
-        errordlg('This folder already exists without speaker metadata. Preserve it before enrolling.', 'Speaker enrollment');
-        return;
-    end
-    try
-        metadata = jsondecode(fileread(metadataFile));
-    catch
-        errordlg('This speaker folder has invalid metadata. Restore speaker.json before replacing it.', 'Speaker enrollment');
-        return;
-    end
-    if ~isstruct(metadata) || ~isscalar(metadata) || ~isfield(metadata, 'name') || ...
-            ~ischar(metadata.name) || ~strcmpi(metadata.name, speakerName)
-        errordlg('Another name maps to this folder. Use a more distinct speaker name.', 'Speaker enrollment');
-        return;
-    end
-    choice = questdlg(sprintf('Replace the existing enrollment for %s?', speakerName), ...
+    choice = questdlg(sprintf('Replace the five recordings in speaker_%s?', slug), ...
         'Speaker enrollment', 'Replace', 'Cancel', 'Cancel');
     if ~strcmp(choice, 'Replace')
         return;
@@ -41,19 +28,15 @@ end
 recordings = cell(1, 5);
 example = 1;
 while example <= 5
-    x = record_voice(fs, phrase, sprintf('%s: enrollment %d of 5', speakerName, example));
+    x = record_voice(fs, phrase, sprintf('%s: recording %d of 5', speakerName, example));
     if isempty(x)
-        disp('Enrollment cancelled. Existing recordings were retained.');
         return;
     end
     try
         sound_pattern(x, fs);
     catch problem
-        if startsWith(problem.identifier, 'speaker:')
-            uiwait(warndlg(problem.message, 'Please record again', 'modal'));
-            continue;
-        end
-        rethrow(problem);
+        uiwait(warndlg(problem.message, 'Please record again', 'modal'));
+        continue;
     end
     recordings{example} = x;
     example = example+1;
@@ -65,12 +48,6 @@ end
 for example = 1:5
     audiowrite(fullfile(recordingFolder, sprintf('sample_%03d.wav', example)), recordings{example}, fs);
 end
-metadata = struct('name', speakerName, 'phrase', phrase, ...
-    'sample_rate', fs, 'feature_version', 1);
-writelines(jsonencode(metadata), fullfile(recordingFolder, 'speaker.json'), 'Encoding', 'UTF-8');
-profiles = sync_speakers(folder);
-message = sprintf('Enrolled speaker: %s\nTotal speakers: %d\n\nEnroll at least two people, then run run_demo.m.', ...
-    speakerName, numel(profiles));
-fprintf('%s\n', message);
+message = sprintf('Saved five recordings for %s.\n\nCommit and push this speaker folder to share it.', speakerName);
+fprintf('%s\nFolder: %s\n', message, recordingFolder);
 msgbox(message, 'Enrollment saved');
-fprintf('Shared recordings: %s\nCommit and push this folder to share the enrollment.\n', recordingFolder);

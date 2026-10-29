@@ -1,6 +1,4 @@
-# Local profiles, legacy recordings, and MATLAB temporary files
-my_recordings/
-speaker_profiles.mat
+# MATLAB and operating-system temporary files
 *.asv
 *.m~
 *.autosave
