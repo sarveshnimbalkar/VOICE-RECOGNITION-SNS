@@ -67,7 +67,7 @@ The result appears in a dialog and the Command Window, with two separate figures
 
 Each successful run automatically saves `test_signal.png` and `test_comparison.png` beside the code, replacing the previous images. They are figure exports of the actual test input, with its prediction and comparisons. Commit and push these two files to update the images displayed on GitHub.
 
-### Latest Real Test
+### Real Test
 
 The images below show a microphone test performed by the project user. They are example outputs, not an accuracy benchmark. Future successful runs replace these images with the latest microphone or WAV-file test.
 
