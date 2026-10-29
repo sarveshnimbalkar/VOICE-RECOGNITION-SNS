@@ -8,8 +8,6 @@ required = {'name', 'features', 'phrase', 'feature_version'};
 if ~all(isfield(profiles, required))
     error('speaker:Profiles', 'Invalid speaker profiles. Enroll the speakers again.');
 end
-names = cell(1, numel(profiles));
-allFeatures = [];
 for k = 1:numel(profiles)
     p = profiles(k);
     if ~ischar(p.name) || isempty(strtrim(p.name)) || ...
@@ -19,16 +17,15 @@ for k = 1:numel(profiles)
             size(p.features, 2) < 5 || any(~isfinite(p.features(:)))
         error('speaker:Profiles', 'Invalid or incompatible profile. Enroll every speaker again.');
     end
-    names{k} = p.name;
-    allFeatures = [allFeatures p.features]; %#ok<AGROW>
 end
+names = {profiles.name};
 if numel(unique(lower(string(names)))) ~= numel(names)
     error('speaker:Profiles', 'Speaker names must be unique.');
 end
 
 [pattern, filteredSound, details] = sound_pattern(x, fs);
 % Learn feature scales from enrollment only; the floor limits unstable weights.
-scale = max(std(allFeatures, 0, 2), 0.5);
+scale = max(std([profiles.features], 0, 2), 0.5);
 scores = zeros(1, numel(profiles));
 for k = 1:numel(profiles)
     centroid = mean(profiles(k).features, 2);

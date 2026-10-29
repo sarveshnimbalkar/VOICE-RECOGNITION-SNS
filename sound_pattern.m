@@ -30,7 +30,7 @@ filteredSound = filteredSound(1:length(x));
 frameLength = round(0.025*fs);
 hopLength = round(0.010*fs);
 starts = 1:hopLength:(length(x)-frameLength+1);
-indices = bsxfun(@plus, (0:frameLength-1)', starts);
+indices = (0:frameLength-1)' + starts;
 frames = filteredSound(indices);
 energy = mean(frames.^2, 1);
 % The first 0.25 s must contain background only, including in imported files.
@@ -43,7 +43,7 @@ end
 
 emphasized = filter([1 -0.97], 1, filteredSound);
 window = 0.54 - 0.46*cos(2*pi*(0:frameLength-1)'/(frameLength-1));
-frames = bsxfun(@times, emphasized(indices(:, speechFrames)), window);
+frames = emphasized(indices(:, speechFrames)) .* window;
 frameFftSize = 512;
 powerSpectrum = abs(fft(frames, frameFftSize)).^2 / frameFftSize;
 powerSpectrum = powerSpectrum(1:frameFftSize/2+1, :);
