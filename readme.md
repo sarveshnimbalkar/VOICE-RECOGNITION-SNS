@@ -50,6 +50,8 @@ speaker_recordings/
     sample_001.wav ... sample_005.wav
   speaker_sarvesh/
     sample_001.wav ... sample_005.wav
+  speaker_dhruv/
+    sample_001.wav ... sample_005.wav
 ```
 
 ## Use
@@ -62,8 +64,8 @@ Open the project folder in MATLAB. No additional toolboxes are required.
 
 The result appears in a dialog and the Command Window, with two separate figures shown as tabs in one MATLAB figure window:
 
-- **Speaker identification:** the waveform, the full-record FFT before and after filtering, MFCCs, and matching distances. Lower distances indicate a closer match. Similar scores produce **Uncertain match**.
-- **Speaker mean comparison:** the current voice's mean MFCCs overlaid with each enrolled speaker's means, followed by the signed difference (current mean minus speaker mean) for each coefficient. Values closer to zero indicate similar means. These plots show the 13 mean features; identification still uses all 26 mean and standard-deviation features with enrollment-derived scaling.
+- **Speaker identification:** the waveform, the full-record FFT before and after filtering, MFCCs, and matching distances. Lower distances indicate a closer match. Similar scores or a poor match to every profile produce **Uncertain match**.
+- **Speaker mean comparison:** the current voice's mean MFCCs overlaid with each enrolled speaker's means, followed by the signed difference (current mean minus speaker mean) for each coefficient. Values closer to zero indicate similar means. These plots show arithmetic averages of the 13 mean features; identification uses robust median profiles of all 26 mean and standard-deviation features.
 
 Each successful run automatically saves `test_signal.png` and `test_comparison.png` beside the code, replacing the previous images. They are figure exports of the actual test input, with its prediction and comparisons. Commit and push these two files to update the images displayed on GitHub.
 
@@ -89,7 +91,7 @@ Use 16 kHz WAV files with at least 0.25 seconds of background audio at the begin
 2. Select speech using frame power over 25 ms frames with a 10 ms hop.
 3. Apply pre-emphasis, a Hamming window, a 512-point FFT, 26 mel filters, a logarithm, and a DCT.
 4. Keep 13 MFCCs, excluding coefficient zero. Their means and standard deviations form a 26-value descriptor.
-5. Average each person's five descriptors and select the nearest speaker using distances scaled by enrollment variation.
+5. Take the coordinate-wise median of each person's five descriptors. Scale distances by robust within-speaker variation, then select the nearest profile only if the match passes the distance and separation checks. Inconsistent enrollment samples are reported in the Command Window.
 
 The main Signals and Systems connections are discrete-time operations (Unit 1), LTI filtering and convolution (Unit 2), and Fourier analysis (Unit 4). The pre-emphasis difference equation also has a Z-transform interpretation (Unit 6):
 
@@ -110,6 +112,8 @@ $$
  d_s=\frac{1}{26}\sum_{i=1}^{26}\left(\frac{p_i-c_{s,i}}{a_i}\right)^2.
 $$
 
-Here, $c_s$ is a speaker's mean descriptor and $a_i$ is the enrollment standard deviation for that coordinate, floored at 0.5. A relative separation below 0.10 between the best two scores produces an uncertain result. MFCCs and classification extend the listed syllabus; Fourier-series and Laplace-transform calculations are not implemented.
+Here, $c_{s,i}=\operatorname{median}_r p_{s,r,i}$ is the median enrollment descriptor. For residuals $e_{s,r,i}=p_{s,r,i}-c_{s,i}$, the shared scale is $a_i=\max(1.4826\operatorname{median}_{s,r}|e_{s,r,i}|,0.5)$. This measures variation within speakers rather than reducing the weight of features that distinguish different speakers. Medians reduce the influence of an unusual enrollment clip.
+
+A relative separation $(d_{(2)}-d_{(1)})/\max(d_{(2)},\varepsilon)$ below 0.20, or a best distance above 4, produces an uncertain result. The distance limit corresponds to a root-mean-square standardized mismatch above 2; these are practical heuristics, not confidence probabilities or validated unknown-speaker detection. Re-enroll when the Command Window flags inconsistent samples, and use fresh recordings to assess performance. MFCCs and classification extend the listed syllabus; Fourier-series and Laplace-transform calculations are not implemented.
 
 This is an educational, closed-set speaker classifier. Human accuracy has not been established, and an unregistered person may be matched to an enrolled speaker. Use fresh test recordings rather than treating enrollment matches as accuracy measurements.

@@ -56,20 +56,29 @@ catch problem
     errordlg(problem.message, 'Speaker identification');
     return;
 end
-scale = max(std(reshape(features, 26, []), 0, 2), 0.5);
+% Use within-speaker variation; between-speaker differences carry identity.
+centroids = median(features, 2);
+residuals = reshape(features-centroids, 26, []);
+scale = max(1.4826*median(abs(residuals), 2), 0.5);
 scores = zeros(1, numel(speakers));
 speakerMeans = zeros(13, numel(speakers));
 for speakerNumber = 1:numel(speakers)
-    centroid = mean(features(:, :, speakerNumber), 2);
-    speakerMeans(:, speakerNumber) = centroid(1:13);
+    centroid = centroids(:, 1, speakerNumber);
+    speakerMeans(:, speakerNumber) = mean(features(1:13, :, speakerNumber), 2);
     scores(speakerNumber) = mean(((pattern-centroid)./scale).^2);
+    enrollmentDistances = mean(((features(:, :, speakerNumber)-centroid)./scale).^2, 1);
+    if any(enrollmentDistances > 4)
+        fprintf('Check %s enrollment sample(s) %s: inconsistent with the other recordings. Consider re-enrolling.\n', ...
+            names{speakerNumber}, mat2str(find(enrollmentDistances > 4)));
+    end
 end
 [ordered, positions] = sort(scores);
 result.name = names{positions(1)};
 result.names = names;
 result.scores = scores;
 result.margin = (ordered(2)-ordered(1))/max(ordered(2), eps);
-result.uncertain = result.margin < 0.10;
+% These are practical rejection limits, not calibrated probabilities.
+result.uncertain = result.margin < 0.20 || ordered(1) > 4;
 result.phrase = phrase;
 if result.uncertain
     message = sprintf('Uncertain match. Please repeat.\nClosest enrolled speaker: %s', result.name);
