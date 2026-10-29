@@ -91,7 +91,7 @@ else
     x = mean(x, 2);
 end
 time = (0:length(x)-1)'/fs;
-figure('Name', 'Speaker identification', 'Color', 'w', 'Position', [80 60 1100 900]);
+signalFigure = figure('Name', 'Speaker identification', 'Color', 'w', 'WindowStyle', 'docked');
 subplot(4,1,1); plot(time, x); grid on;
 title('Recorded speech'); xlabel('Time (s)'); ylabel('Amplitude');
 subplot(4,1,2);
@@ -113,7 +113,7 @@ set(findall(gcf, 'Type', 'legend'), 'Color', 'w', 'TextColor', 'k');
 coefficients = 1:13;
 colors = lines(numel(speakers));
 meanDifferences = pattern(1:13)-speakerMeans;
-figure('Name', 'Speaker mean comparison', 'Color', 'w', 'Position', [140 80 1100 720]);
+meanFigure = figure('Name', 'Speaker mean comparison', 'Color', 'w', 'WindowStyle', 'docked');
 subplot(2,1,1);
 plot(coefficients, pattern(1:13), '-ko', 'LineWidth', 2); hold on;
 for speakerNumber = 1:numel(speakers)
@@ -134,3 +134,8 @@ legend(bars, names, 'Interpreter', 'none', 'Location', 'best');
 set(findall(gcf, 'Type', 'axes'), 'Color', 'w', 'XColor', 'k', 'YColor', 'k');
 set(findall(gcf, 'Type', 'text'), 'Color', 'k');
 set(findall(gcf, 'Type', 'legend'), 'Color', 'w', 'TextColor', 'k');
+
+drawnow;
+exportgraphics(signalFigure, fullfile(folder, 'test_signal.png'), 'Resolution', 150);
+exportgraphics(meanFigure, fullfile(folder, 'test_comparison.png'), 'Resolution', 150);
+fprintf('Saved latest test figures: test_signal.png and test_comparison.png\n');

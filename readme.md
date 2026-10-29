@@ -60,10 +60,20 @@ Open the project folder in MATLAB. No additional toolboxes are required.
 
 > This is my voice for identification.
 
-The result appears in a dialog and the Command Window, with two figures:
+The result appears in a dialog and the Command Window, with two separate figures shown as tabs in one MATLAB figure window:
 
 - **Speaker identification:** the waveform, the full-record FFT before and after filtering, MFCCs, and matching distances. Lower distances indicate a closer match. Similar scores produce **Uncertain match**.
 - **Speaker mean comparison:** the current voice's mean MFCCs overlaid with each enrolled speaker's means, followed by the signed difference (current mean minus speaker mean) for each coefficient. Values closer to zero indicate similar means. These plots show the 13 mean features; identification still uses all 26 mean and standard-deviation features with enrollment-derived scaling.
+
+Each successful run automatically saves `test_signal.png` and `test_comparison.png` beside the code, replacing the previous images. They are figure exports of the actual test input, with its prediction and comparisons. Commit and push these two files to update the images displayed on GitHub.
+
+### Latest Real Test
+
+The images below show a microphone test performed by the project user. They are example outputs, not an accuracy benchmark. Future successful runs replace these images with the latest microphone or WAV-file test.
+
+![Latest test waveform, FFT, MFCCs, and speaker prediction](test_signal.png)
+
+![Latest test voice compared with enrolled speaker means and their differences](test_comparison.png)
 
 **To add a speaker:** run `train_my_voice.m`, enter their name, and record five examples. Stay quiet until **SPEAK NOW**, then finish the phrase within four seconds. Poor recordings are retried. Cancelling an unfinished enrollment keeps the existing recordings. Replacing an existing speaker folder requires confirmation.
 
