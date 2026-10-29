@@ -2,18 +2,19 @@
 fs = 16000;
 folder = fileparts(mfilename('fullpath'));
 addpath(folder);
-profileFile = fullfile(folder, 'speaker_profiles.mat');
-if ~exist(profileFile, 'file')
-    errordlg('Run train_my_voice.m for at least two different people first.', 'Speaker identification');
+try
+    profiles = sync_speakers(folder);
+catch problem
+    if startsWith(problem.identifier, 'speaker:')
+        errordlg(problem.message, 'Speaker identification');
+        return;
+    end
+    rethrow(problem);
+end
+if numel(profiles) < 2
+    errordlg('Enroll or pull recordings for at least two different people first.', 'Speaker identification');
     return;
 end
-saved = load(profileFile, 'profiles');
-if ~isfield(saved, 'profiles') || ~isstruct(saved.profiles) || numel(saved.profiles) < 2 || ...
-        ~all(isfield(saved.profiles, {'name', 'features', 'phrase', 'feature_version'}))
-    errordlg('Enroll at least two different people using train_my_voice.m.', 'Speaker identification');
-    return;
-end
-profiles = saved.profiles;
 inputMode = questdlg('Choose an input for speaker identification.', ...
     'Speaker identification', 'Microphone', 'WAV file', 'Cancel', 'Microphone');
 if isempty(inputMode) || strcmp(inputMode, 'Cancel')

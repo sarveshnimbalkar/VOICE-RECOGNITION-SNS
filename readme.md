@@ -11,14 +11,14 @@ flowchart TD
     startNode(["Start"]) --> scriptChoice{"Run which script?"}
 
     subgraph enrollment ["Speaker enrollment - train_my_voice.m"]
-        enrollSetup["Load profiles and enter speaker name"]
+        enrollSetup["Enter speaker name and select its named folder"]
         enrollReady{"Valid setup and replacement approved if needed?"}
         enrollRecord["Record the common phrase at 16 kHz"]
         enrollFeatures[["Validate speech and extract MFCC descriptor"]]
         enrollValid{"Feature extraction successful?"}
         enrollRetry["Show warning and retry the same example"]
         fiveComplete{"Five valid recordings collected?"}
-        profileStore[("Save named profiles and enrollment WAV files locally")]
+        profileStore[("Save WAV files and speaker.json, then rebuild profiles")]
         enrollSuccess["Show enrollment confirmation"]
 
         enrollSetup --> enrollReady
@@ -34,7 +34,7 @@ flowchart TD
     end
 
     subgraph identification ["Speaker identification - run_demo.m"]
-        loadProfiles["Load enrolled speaker profiles"]
+        loadProfiles["Rebuild profiles from shared speaker folders"]
         profilesReady{"Valid profiles for at least two speakers?"}
         acquireAudio["Choose microphone or WAV and acquire a new phrase"]
         queryFeatures[["Validate speech and extract MFCC descriptor"]]
@@ -111,11 +111,11 @@ MFCCs, mel-scale analysis, the DCT, and speaker classification extend the listed
 
 Each recording includes approximately 0.5 seconds of background followed by a four-second speaking interval. Complete the phrase within that interval and use a consistent microphone position. An insufficient-speech recording is retried. Cancelling before enrollment finishes retains existing profiles.
 
-Enrollment accepts any display name. Re-entering an existing name, ignoring letter case, offers to replace that person's enrollment. Numeric recording folders keep display names separate from file paths.
+Enrollment accepts any display name. Re-entering an existing name, ignoring letter case, offers to replace that person's enrollment. The entered name determines a lowercase folder with the `speaker_` prefix: `Arnav Deshpande` becomes `speaker_arnav_deshpande`. Spaces and punctuation become underscores. A `speaker.json` file preserves the original display name, enrollment phrase, sample rate, and feature version. If two different names produce the same folder name, enrollment asks you to use a more distinct name instead of overwriting another person's samples.
 
 ### Identify a speaker
 
-Run `run_demo.m` and choose **Microphone** or **WAV file**. For microphone input, read the same phrase after the recording cue. For file input, select a new 16 kHz WAV recording of that phrase with at least 0.25 seconds of initial background audio.
+Run `run_demo.m`. It first rebuilds the local profiles from every shared speaker folder, including recordings downloaded through GitHub. Then choose **Microphone** or **WAV file**. For microphone input, read the same phrase after the recording cue. For file input, select a new 16 kHz WAV recording of that phrase with at least 0.25 seconds of initial background audio.
 
 The result appears in a dialog and in the Command Window. A figure displays the recorded waveform, MFCCs, and distances to enrolled profiles. Use a fresh test recording rather than an enrollment file.
 
@@ -123,11 +123,49 @@ If the two closest scores are similar, the result is **Uncertain match**. This i
 
 ### Sharing enrollment audio through GitHub
 
-Enrollment WAV files in `speaker_recordings/` are currently included in version control so collaborators can exchange samples. New recordings must be committed and pushed, and the other collaborator must pull the changes.
+Each collaborator runs `train_my_voice.m` on their own computer and enters their own name. Enrollment creates a separate folder, for example:
 
-Pull the latest changes before adding samples. Each computer assigns numeric folders from its own local profiles, so two people can independently produce `speaker_001/`. Preserve downloaded recordings before running enrollment with a different local profile database: the script can overwrite that same numeric folder. Add your friend's files under a distinct folder, such as `speaker_friend/`, rather than replacing an existing contributor's samples. Renaming a recording folder does not affect saved feature profiles, which are stored separately.
+```text
+speaker_recordings/
+  speaker_arnav/
+    speaker.json
+    sample_001.wav
+    sample_002.wav
+    sample_003.wav
+    sample_004.wav
+    sample_005.wav
+  speaker_friend_name/
+    speaker.json
+    sample_001.wav
+    sample_002.wav
+    sample_003.wav
+    sample_004.wav
+    sample_005.wav
+```
 
-The generated `speaker_profiles.mat` database remains local and ignored by Git. Downloaded WAV files are available for sharing and analysis, but the application does not automatically rebuild or merge speaker profiles from them.
+1. Pull the latest project changes before recording.
+2. Run `train_my_voice.m`, enter your name, and record the five examples of the common phrase.
+3. Commit and push **the whole new speaker folder**, including `speaker.json` and all five WAV files.
+4. Your collaborator pulls those changes and runs `run_demo.m`. Both people's recordings are automatically included when the local profiles are rebuilt.
+
+Git commands for the contributor, replacing `speaker_friend_name` with the folder printed after enrollment:
+
+```bash
+git pull origin main
+git add speaker_recordings/speaker_friend_name/
+git commit -m "Add enrollment samples for Friend Name"
+git push origin main
+```
+
+On the receiving computer, pull the changes and run `run_demo.m` in MATLAB. You can also rebuild the profiles without starting identification:
+
+```matlab
+profiles = sync_speakers;
+```
+
+The generated `speaker_profiles.mat` remains ignored by Git; shared WAV files and `speaker.json` are the source of truth. Rebuilding avoids conflicts between binary profile databases and replaces stale local features. Missing files, incompatible metadata, or unusable recordings produce an error identifying the problem, while retaining the previous valid cache.
+
+Use distinct names for different people. Re-enrolling the same name intentionally replaces that person's five samples after confirmation. There is no automatic Git push from MATLAB; each contributor commits and pushes their enrollment folder normally.
 
 ## Notation
 
@@ -386,9 +424,10 @@ Run the automated checks from the project folder:
 ```matlab
 addpath('tests');
 test_speaker_identification;
+test_shared_recordings;
 ```
 
-The checks cover separate synthetic test realizations, gain invariance, mono/row/stereo inputs, WAV import, silence, stationary noise, insufficient audio, unsupported sample rates, invalid profiles, and tied scores. To regenerate the figure:
+The collaboration checks simulate two separate computers, copy one speaker folder to the other, and verify combined identification, cache rebuilding, and invalid shared files. The feature checks cover separate synthetic test realizations, gain invariance, mono/row/stereo inputs, WAV import, silence, stationary noise, insufficient audio, unsupported sample rates, invalid profiles, and tied scores. To regenerate the figure:
 
 ```matlab
 test_speaker_identification(fullfile(pwd, 'docs', 'images'));
@@ -405,9 +444,12 @@ Human identification accuracy has not been measured. Evaluate fresh recordings f
 | `record_voice.m` | Shared recording procedure with visible cues |
 | `sound_pattern.m` | Signal processing and MFCC feature extraction |
 | `identify_speaker.m` | Profile validation and minimum-distance classification |
+| `sync_speakers.m` | Rebuild local profiles from all shared speaker folders |
+| `speaker_folder_name.m` | Convert entered names into safe lowercase folder names |
 | `tests/test_speaker_identification.m` | Automated pipeline and input-validation checks |
+| `tests/test_shared_recordings.m` | Two-computer enrollment-sharing and cache tests |
 | `speaker_profiles.mat` | Local names and feature templates; ignored by Git |
-| `speaker_recordings/` | Enrollment WAV samples shared through GitHub |
+| `speaker_recordings/` | Named speaker folders containing shared WAV files and `speaker.json` |
 | `docs/images/speaker_validation.png` | Synthetic validation figure |
 
 The `demo_audio/` and `my_recordings/` directories and older result images are legacy assets without verified multi-speaker labels. They are not loaded by this system. Enroll each participant afresh.
@@ -420,4 +462,4 @@ The `demo_audio/` and `my_recordings/` directories and older result images are l
 - The energy gate can admit noise, and the band mask cannot remove all interference.
 - There is no calibrated rejection threshold for unregistered people, replay detection, or spoofing resistance.
 - The project is an educational speaker-identification baseline, not an authentication mechanism.
-- Enrollment WAV recordings are currently shared through GitHub. Speaker names and feature templates in `speaker_profiles.mat` remain local and excluded from version control.
+- Enrollment WAV recordings and the display names in `speaker.json` are shared through GitHub. The generated feature cache `speaker_profiles.mat` remains local and excluded from version control.
