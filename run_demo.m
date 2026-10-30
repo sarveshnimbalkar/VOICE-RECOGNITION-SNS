@@ -5,8 +5,8 @@ folder = fileparts(mfilename('fullpath'));
 addpath(folder);
 speakers = dir(fullfile(folder, 'speaker_recordings', 'speaker_*'));
 speakers = speakers([speakers.isdir]);
-if numel(speakers) < 2
-    errordlg('Enroll or pull recordings for at least two people first.', 'Speaker identification');
+if isempty(speakers)
+    errordlg('No speakers enrolled. Run train_my_voice.m first.', 'Speaker identification');
     return;
 end
 
@@ -32,22 +32,9 @@ catch problem
     return;
 end
 
-inputMode = questdlg('Choose an input for speaker identification.', ...
-    'Speaker identification', 'Microphone', 'WAV file', 'Cancel', 'Microphone');
-if isempty(inputMode) || strcmp(inputMode, 'Cancel')
+x = record_voice(fs, phrase, 'Live speaker identification');
+if isempty(x)
     return;
-end
-if strcmp(inputMode, 'Microphone')
-    x = record_voice(fs, phrase, 'Speaker identification');
-    if isempty(x)
-        return;
-    end
-else
-    [filename, pathname] = uigetfile('*.wav', 'Select a new 16000 Hz recording of the same phrase');
-    if isequal(filename, 0)
-        return;
-    end
-    [x, fs] = audioread(fullfile(pathname, filename));
 end
 
 try
@@ -76,13 +63,20 @@ end
 result.name = names{positions(1)};
 result.names = names;
 result.scores = scores;
-result.margin = (ordered(2)-ordered(1))/max(ordered(2), eps);
+result.margin = NaN;
+if numel(speakers) > 1
+    result.margin = (ordered(2)-ordered(1))/max(ordered(2), eps);
+end
 % These are practical rejection limits, not calibrated probabilities.
 result.uncertain = result.margin < 0.20 || ordered(1) > 4;
 result.phrase = phrase;
 if result.uncertain
-    message = sprintf('Uncertain match. Please repeat.\nClosest enrolled speaker: %s', result.name);
-    plotTitle = ['Uncertain match: ' result.name];
+    result.name = 'Uncertain';
+    message = 'No reliable match. Please repeat the phrase clearly.';
+    plotTitle = 'Uncertain match';
+elseif isscalar(speakers)
+    message = sprintf('Voice matches enrollment: %s\nOnly one speaker enrolled; no comparison with other people.', result.name);
+    plotTitle = ['Enrollment match: ' result.name];
 else
     message = sprintf('Identified speaker: %s', result.name);
     plotTitle = message;
