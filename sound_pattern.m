@@ -1,5 +1,5 @@
 function [pattern, filteredSound, details] = sound_pattern(x, fs)
-% Summarize speech with the mean and standard deviation of 13 MFCCs.
+% Summarize speech with 13 MFCC means, 13 deviations, and log-pitch.
 
 if fs ~= 16000
     error('speaker:SampleRate', 'Audio must be recorded at 16000 Hz.');
@@ -72,4 +72,39 @@ pattern = [mean(cepstra, 2); std(cepstra, 0, 2)];
 details.cepstra = cepstra;
 details.frame_times = (starts(speechFrames)-1+frameLength/2)/fs;
 details.speech_seconds = sum(speechFrames)*hopLength/fs;
+
+% Periodicity supplies a voice-source cue alongside the spectral MFCCs.
+pitchLength = round(0.040*fs);
+pitchStarts = starts(speechFrames);
+pitchStarts = pitchStarts(pitchStarts+pitchLength-1 <= length(filteredSound));
+pitchFrames = filteredSound((0:pitchLength-1)' + pitchStarts);
+pitchFrames = pitchFrames-mean(pitchFrames, 1);
+correlation = real(ifft(abs(fft(pitchFrames, 2048)).^2));
+lags = ceil(fs/400):floor(fs/70);
+normalized = zeros(numel(lags), numel(pitchStarts));
+for lagNumber = 1:numel(lags)
+    lag = lags(lagNumber);
+    denominator = sqrt(sum(pitchFrames(1:end-lag, :).^2, 1).* ...
+        sum(pitchFrames(1+lag:end, :).^2, 1));
+    normalized(lagNumber, :) = correlation(lag+1, :)./max(denominator, eps);
+end
+pitches = zeros(1, numel(pitchStarts));
+for frameNumber = 1:numel(pitchStarts)
+    strength = normalized(:, frameNumber);
+    peaks = find(strength(2:end-1) > strength(1:end-2) & ...
+        strength(2:end-1) >= strength(3:end))+1;
+    if isempty(peaks) || max(strength(peaks)) < 0.65
+        continue;
+    end
+    % Prefer the first strong peak to reduce pitch-halving errors.
+    peak = peaks(find(strength(peaks) >= max(0.65, 0.9*max(strength(peaks))), 1));
+    pitches(frameNumber) = fs/lags(peak);
+end
+pitches = pitches(pitches > 0);
+if numel(pitches)*hopLength/fs < 0.15
+    error('speaker:NoVoice', 'Not enough voiced speech. Stay quiet first, then speak the complete phrase in your normal voice.');
+end
+details.pitch_hz = median(pitches);
+details.voiced_seconds = numel(pitches)*hopLength/fs;
+pattern = [pattern; log2(details.pitch_hz)];
 end

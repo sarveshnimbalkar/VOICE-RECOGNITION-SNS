@@ -17,12 +17,12 @@ flowchart TD
     fiveSamples -->|"No"| recordAudio
     fiveSamples -->|"Yes"| saveAudio["Save five WAV files under speaker_name"]
     saveAudio --> stopNode
-    mode -->|"run_demo.m"| loadAudio["Read shared speaker folders and extract MFCCs"]
+    mode -->|"run_demo.m"| loadAudio["Read shared speaker folders and extract MFCCs and pitch"]
     loadAudio --> ready{"At least one speaker with valid recordings?"}
     ready -->|"No"| showError["Show error"]
     ready -->|"Yes"| testAudio["Record live speech with the microphone"]
     testAudio -->|"Cancel"| stopNode
-    testAudio --> extract["Extract test MFCCs"]
+    testAudio --> extract["Extract test MFCCs and pitch"]
     extract --> validTest{"Valid speech?"}
     validTest -->|"No"| showError
     validTest -->|"Yes"| compare["Compare with enrolled speaker profiles"]
@@ -40,7 +40,7 @@ Profiles are calculated in memory from the WAV files every time you run identifi
 | `train_my_voice.m` | Record and save five samples for a named speaker |
 | `run_demo.m` | Load speakers, identify new speech, and display results |
 | `record_voice.m` | Shared microphone recording with quiet/speak cues |
-| `sound_pattern.m` | Filter audio and extract MFCC features |
+| `sound_pattern.m` | Filter audio and extract MFCC and pitch features |
 
 Enrollment creates `speaker_recordings/speaker_<name>/sample_001.wav` through `sample_005.wav`. The current enrollment set contains **two speakers and ten recordings**:
 
@@ -62,13 +62,13 @@ Open the project folder in MATLAB. No additional toolboxes are required.
 The result appears in a dialog and the Command Window, with two separate figures shown as tabs in one MATLAB figure window:
 
 - **Speaker identification:** the waveform, the full-record FFT before and after filtering, MFCCs, and matching distances. Lower distances indicate a closer match. Similar scores or a poor match to every profile produce **Uncertain match**, without assigning a speaker name.
-- **Speaker mean comparison:** the current voice's mean MFCCs overlaid with each enrolled speaker's means, followed by the signed difference (current mean minus speaker mean) for each coefficient. Values closer to zero indicate similar means. These plots show arithmetic averages of the 13 mean features; identification uses robust median profiles of all 26 mean and standard-deviation features.
+- **Speaker mean comparison:** the current voice's mean MFCCs overlaid with each enrolled speaker's means, followed by the signed difference (current mean minus speaker mean) for each coefficient. Values closer to zero indicate similar means. These plots show arithmetic averages of the 13 mean features; identification combines robust median profiles of the 26 MFCC statistics with a voiced-pitch feature. Pitch is also printed in the Command Window.
 
 Each successful run automatically saves `test_signal.png` and `test_comparison.png` beside the code, replacing the previous images. They are figure exports of the actual test input, with its prediction and comparisons. Commit and push these two files to share the latest test figures on GitHub.
 
 ### Latest Live Test
 
-The saved figures below show a user-performed live test against the current Arnav and Sarvesh enrollments. The model predicted **Arnav**. These figures document one test, not an accuracy benchmark; the next successful live test replaces them.
+The saved figures below show an earlier user-performed live test against the Arnav and Sarvesh enrollments, before the pitch feature was added. They illustrate the plots and are not an accuracy benchmark. Each successful live run saves replacement figures locally.
 
 ![Live-test waveform, FFT, MFCCs, and Arnav prediction](test_signal.png)
 
@@ -89,8 +89,8 @@ The live demo has no WAV-file selection option. Enrollment still saves 16 kHz WA
 1. Convert audio to mono, remove its mean, and retain 80–7600 Hz using an FFT mask and inverse FFT.
 2. Select speech using frame power over 25 ms frames with a 10 ms hop.
 3. Apply pre-emphasis, a Hamming window, a 512-point FFT, 26 mel filters, a logarithm, and a DCT.
-4. Keep 13 MFCCs, excluding coefficient zero. Their means and standard deviations form a 26-value descriptor.
-5. Take the coordinate-wise median of each person's five descriptors. Scale distances by robust within-speaker variation, then select the nearest profile only if the match passes the distance and separation checks. Inconsistent enrollment samples are reported in the Command Window.
+4. Keep 13 MFCCs, excluding coefficient zero. Their means and standard deviations supply 26 spectral features. Also estimate vocal pitch from normalized autocorrelation of 40 ms speech frames, using lags corresponding to 70–400 Hz. At least 0.15 seconds of periodic voiced frames is required; the median pitch is stored as a base-2 logarithm, giving 27 features in total.
+5. Take the coordinate-wise median of each person's five descriptors. Combine the scaled MFCC distance (75%) and log-pitch distance (25%), using robust within-speaker variation, then select the nearest profile only if the match passes the distance and separation checks. Inconsistent enrollment samples are reported in the Command Window.
 
 The main Signals and Systems connections are discrete-time operations (Unit 1), LTI filtering and convolution (Unit 2), and Fourier analysis (Unit 4). The pre-emphasis difference equation also has a Z-transform interpretation (Unit 6):
 
@@ -104,15 +104,23 @@ $$
 X[k]=\sum_{n=0}^{N-1}x[n]e^{-j2\pi kn/N},\qquad Y[k]=H[k]X[k].
 $$
 
-Spectral multiplication corresponds to circular convolution at the DFT length. The MFCC descriptor and matching score are:
+Spectral multiplication corresponds to circular convolution at the DFT length. Pitch estimation adds a time-domain periodicity measurement:
 
 $$
-\mathbf{p}=[\mu_1,\ldots,\mu_{13},\sigma_1,\ldots,\sigma_{13}]^T,\qquad
- d_s=\frac{1}{26}\sum_{i=1}^{26}\left(\frac{p_i-c_{s,i}}{a_i}\right)^2.
+r_x[\ell]=\sum_n x[n]x[n+\ell],\qquad \hat f_0=\frac{f_s}{\ell_{\mathrm{peak}}}.
 $$
 
-Here, $c_{s,i}=\operatorname{median}_r p_{s,r,i}$ is the median enrollment descriptor. For residuals $e_{s,r,i}=p_{s,r,i}-c_{s,i}$, the shared scale is $a_i=\max(1.4826\operatorname{median}_{s,r}|e_{s,r,i}|,0.5)$. This measures variation within speakers rather than reducing the weight of features that distinguish different speakers. Medians reduce the influence of an unusual enrollment clip.
+The implementation normalizes each lag by the overlapping frame energies, accepts correlation peaks of at least 0.65, and chooses the earliest peak at least 90% as strong as the strongest peak. The median frequency over voiced frames reduces occasional pitch errors. This complements the vocal-tract information in MFCCs; pitch alone does not identify a speaker.
 
-With multiple speakers, a relative separation $(d_{(2)}-d_{(1)})/\max(d_{(2)},\varepsilon)$ below 0.20 produces an uncertain result. With any number of speakers, a best distance above 4 also produces an uncertain result. With one speaker, only the distance check is available. The distance limit corresponds to a root-mean-square standardized mismatch above 2; these are practical heuristics, not confidence probabilities or validated unknown-speaker detection. Re-enroll when the Command Window flags inconsistent samples, and use fresh recordings to assess performance. MFCCs and classification extend the listed syllabus; Fourier-series and Laplace-transform calculations are not implemented.
+For MFCC statistics $\mathbf{m}=[\mu_1,\ldots,\mu_{13},\sigma_1,\ldots,\sigma_{13}]^T$ and $q=\log_2(\hat f_0)$, the matching score is:
+
+$$
+ d_s=\frac{0.75}{26}\sum_{i=1}^{26}\left(\frac{m_i-c_{s,i}}{a_i}\right)^2
+ +0.25\left(\frac{q-c_{s,27}}{a_{27}}\right)^2.
+$$
+
+Here, $c_{s,i}$ is the coordinate-wise median enrollment descriptor. For residuals $e_{s,r,i}=p_{s,r,i}-c_{s,i}$, the shared scale is $a_i=\max(1.4826\operatorname{median}_{s,r}|e_{s,r,i}|,b_i)$, where $b_i=0.5$ for MFCC statistics and $b_{27}=0.1$ octave for log-pitch. This measures variation within speakers and reduces the influence of unusual enrollment clips. The feature weights and scale floors are practical choices for this small educational model.
+
+With multiple speakers, a relative separation $(d_{(2)}-d_{(1)})/\max(d_{(2)},\varepsilon)$ below 0.20 produces an uncertain result. With any number of speakers, a best distance above 4 also produces an uncertain result. With one speaker, only the distance check is available. The distance limit corresponds to a weighted root-mean-square standardized mismatch above 2; these are practical heuristics, not confidence probabilities or validated unknown-speaker detection. Re-enroll when the Command Window flags inconsistent samples, and use fresh recordings to assess performance. MFCCs and classification extend the listed syllabus; Fourier-series and Laplace-transform calculations are not implemented.
 
 This is an educational, closed-set speaker classifier. Human accuracy has not been established, and an unregistered person may be matched to an enrolled speaker. Use fresh test recordings rather than treating enrollment matches as accuracy measurements.

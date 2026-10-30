@@ -11,7 +11,7 @@ if isempty(speakers)
 end
 
 names = cell(1, numel(speakers));
-features = zeros(26, 5, numel(speakers));
+features = zeros(27, 5, numel(speakers));
 try
     for speakerNumber = 1:numel(speakers)
         name = strrep(speakers(speakerNumber).name(9:end), '_', ' ');
@@ -45,15 +45,18 @@ catch problem
 end
 % Use within-speaker variation; between-speaker differences carry identity.
 centroids = median(features, 2);
-residuals = reshape(features-centroids, 26, []);
-scale = max(1.4826*median(abs(residuals), 2), 0.5);
+residuals = reshape(features-centroids, 27, []);
+scale = max(1.4826*median(abs(residuals), 2), [0.5*ones(26, 1); 0.1]);
 scores = zeros(1, numel(speakers));
 speakerMeans = zeros(13, numel(speakers));
 for speakerNumber = 1:numel(speakers)
     centroid = centroids(:, 1, speakerNumber);
     speakerMeans(:, speakerNumber) = mean(features(1:13, :, speakerNumber), 2);
-    scores(speakerNumber) = mean(((pattern-centroid)./scale).^2);
-    enrollmentDistances = mean(((features(:, :, speakerNumber)-centroid)./scale).^2, 1);
+    difference = (pattern-centroid)./scale;
+    scores(speakerNumber) = 0.75*mean(difference(1:26).^2)+0.25*difference(27)^2;
+    enrollmentDifference = (features(:, :, speakerNumber)-centroid)./scale;
+    enrollmentDistances = 0.75*mean(enrollmentDifference(1:26, :).^2, 1)+ ...
+        0.25*enrollmentDifference(27, :).^2;
     if any(enrollmentDistances > 4)
         fprintf('Check %s enrollment sample(s) %s: inconsistent with the other recordings. Consider re-enrolling.\n', ...
             names{speakerNumber}, mat2str(find(enrollmentDistances > 4)));
@@ -70,6 +73,7 @@ end
 % These are practical rejection limits, not calibrated probabilities.
 result.uncertain = result.margin < 0.20 || ordered(1) > 4;
 result.phrase = phrase;
+result.pitch_hz = details.pitch_hz;
 if result.uncertain
     result.name = 'Uncertain';
     message = 'No reliable match. Please repeat the phrase clearly.';
@@ -82,6 +86,7 @@ else
     plotTitle = message;
 end
 fprintf('%s\n', message);
+fprintf('Estimated voiced pitch: %.1f Hz\n', details.pitch_hz);
 for speakerNumber = 1:numel(names)
     fprintf('  %s: %.4f\n', names{speakerNumber}, scores(speakerNumber));
 end
