@@ -42,7 +42,14 @@ Profiles are calculated in memory from the WAV files every time you run identifi
 | `record_voice.m` | Shared microphone recording with quiet/speak cues |
 | `sound_pattern.m` | Filter audio and extract MFCC features |
 
-Enrollment creates `speaker_recordings/speaker_<name>/sample_001.wav` through `sample_005.wav`. The previous enrollment set has been cleared for a fresh start. No speaker folders are included until someone enrolls again.
+Enrollment creates `speaker_recordings/speaker_<name>/sample_001.wav` through `sample_005.wav`. The current enrollment set contains **two speakers and ten recordings**:
+
+| Speaker | Recording folder | Samples |
+|---|---|---|
+| Arnav | `speaker_recordings/speaker_arnav/` | 5 |
+| Sarvesh | `speaker_recordings/speaker_sarvesh/` | 5 |
+
+These WAV files are included in the repository, so collaborators can pull the same enrollment set and test it with live speech.
 
 ## Use
 
@@ -59,7 +66,13 @@ The result appears in a dialog and the Command Window, with two separate figures
 
 Each successful run automatically saves `test_signal.png` and `test_comparison.png` beside the code, replacing the previous images. They are figure exports of the actual test input, with its prediction and comparisons. Commit and push these two files to share the latest test figures on GitHub.
 
-The previous test images have been cleared with the old enrollment data. New images are saved after the next live test; there are no placeholder results.
+### Latest Live Test
+
+The saved figures below show a user-performed live test against the current Arnav and Sarvesh enrollments. The model predicted **Arnav**. These figures document one test, not an accuracy benchmark; the next successful live test replaces them.
+
+![Live-test waveform, FFT, MFCCs, and Arnav prediction](test_signal.png)
+
+![Live voice compared with Arnav and Sarvesh: mean MFCCs and signed differences](test_comparison.png)
 
 With **one enrolled speaker**, the demo checks whether the live voice matches that enrollment. Both figures show only that speaker. This cannot establish identity against other people. When more people enroll, their bars, mean curves, difference bars, and legends are included automatically.
 
